@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project basedir="." name="LiveCanvas_final">
+	<!-- Properties -->
+	<property name="web.home" location="web" />
+	<property file="build.properties" />
+	<property name="client.jar.file" value="LiveCanvas.jar" />
+	<property environment="env" />
+
+	<target name="copy-libs">
+		<unzip src="lib/Jama-1.0.2.jar" dest="bin" />
+		<unzip src="lib/jnl.jar" dest="bin" />
+		<unzip src="lib/json.jar" dest="bin" />
+		<unzip src="lib/poly2tri.jar" dest="bin" />
+		<unzip src="lib/umfpack.jar" dest="bin" />
+	</target>
+
+	<target name="dist-client" depends="copy-libs">
+		<jar destfile="${web.home}/${client.jar.file}" manifest="src/META-INF/MANIFEST.MF">
+			<fileset dir="bin" />
+		</jar>
+	</target>
+</project>
