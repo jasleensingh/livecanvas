@@ -5,10 +5,8 @@ import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.FileDialog;
 import java.awt.Image;
-import java.awt.Rectangle;
 import java.awt.event.ActionEvent;
 import java.awt.event.KeyEvent;
-import java.awt.event.MouseEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
@@ -39,19 +37,21 @@ import javax.swing.JToggleButton;
 import javax.swing.JToolBar;
 import javax.swing.UIManager;
 
+import livecanvas.AffineTransformPointerHandler;
 import livecanvas.CanvasContainer;
 import livecanvas.CanvasMesh;
+import livecanvas.Mesh;
+import livecanvas.Path;
 import livecanvas.Perspective;
+import livecanvas.PointerHandler;
 import livecanvas.RenderImageTask;
 import livecanvas.Settings;
 import livecanvas.Settings.SettingsContainer;
 import livecanvas.Tool;
-import livecanvas.Tool.Pointer.PointerHandler;
 import livecanvas.Utils;
 import livecanvas.Utils.ButtonType;
 import livecanvas.components.Layer;
 import livecanvas.components.LayersView;
-import livecanvas.components.Viewpoint;
 import livecanvas.components.ViewpointsView;
 import livecanvas.image.RenderData;
 import livecanvas.image.Style;
@@ -59,8 +59,12 @@ import livecanvas.image.Style;
 import org.json.JSONObject;
 
 import common.typeutils.AutoPanel;
+import common.typeutils.BooleanType;
+import common.typeutils.DirectoryType;
+import common.typeutils.EnumType;
 import common.typeutils.IntegerType;
 import common.typeutils.PropertyFactory;
+import common.typeutils.StringType;
 
 public class MeshEditor extends Perspective implements Tool.ToolContext,
 		LayersView.Listener, ViewpointsView.Listener {
@@ -68,6 +72,7 @@ public class MeshEditor extends Perspective implements Tool.ToolContext,
 
 	private JToolBar toolBar;
 	private JMenuBar menuBar;
+	private RenderImageSettings renderImageSettings;
 	private MeshEditorSettings settings;
 	private Color selectedColor;
 	private JToolBar tools;
@@ -78,105 +83,7 @@ public class MeshEditor extends Perspective implements Tool.ToolContext,
 	private LayersView layersView;
 	private ViewpointsView viewpointsView;
 
-	private static final int POINTER_NONE = 0, POINTER_TRANSLATE = 1,
-			POINTER_ROTATE_Z = 2, POINTER_ROTATE_Y = 3, POINTER_ROTATE_X = 4;
-	private PointerHandler pointerHandler = new PointerHandler() {
-		private int action = POINTER_NONE;
-		private int lastX, lastY, currX, currY;
-		private double lastAngle, currAngle, startAngle;
-		private double px, py, pz;
-
-		public void mousePressed(MouseEvent e) {
-			Layer currLayer = canvas.getCurrLayer();
-			Rectangle bounds = currLayer.getPath().getBounds();
-			px = bounds.getCenterX();
-			py = bounds.getCenterY();
-			pz = currLayer.getCenterZ();
-			action = updateState(e, px, py);
-			lastX = currX;
-			lastY = currY;
-			startAngle = lastAngle = currAngle;
-		}
-
-		public void mouseReleased(MouseEvent e) {
-			action = POINTER_NONE;
-		}
-
-		public void mouseDragged(MouseEvent e) {
-			updateState(e, px, py);
-			switch (action) {
-			case POINTER_TRANSLATE: {
-				int dX = currX - lastX;
-				int dY = currY - lastY;
-				if (Math.abs(dX) < 20 && Math.abs(dY) < 20) {
-					return;
-				}
-				canvas.getCurrLayer().translate(dX, dY, 0);
-				break;
-			}
-			case POINTER_ROTATE_Z: {
-				double dAngle = currAngle - lastAngle;
-				if (Math.abs(dAngle) < ANGLE_STEPSIZE) {
-					return;
-				}
-				canvas.getCurrLayer().rotateZ(dAngle, px, py, pz);
-				break;
-			}
-			case POINTER_ROTATE_Y: {
-				double dAngle = currAngle - lastAngle;
-				if (Math.abs(dAngle) < ANGLE_STEPSIZE) {
-					return;
-				}
-				Layer l = canvas.getCurrLayer();
-				Viewpoint vp = l.getCurrentViewpoint();
-				l.setCurrViewpoint(
-						(int) (Utils.angle_PItoPI(currAngle - startAngle) / ANGLE_STEPSIZE),
-						vp.viewpointY);
-				// canvas.getCurrLayer().rotateY(dAngle, px, py, pz);
-				break;
-			}
-			case POINTER_ROTATE_X: {
-				double dAngle = currAngle - lastAngle;
-				if (Math.abs(dAngle) < ANGLE_STEPSIZE) {
-					return;
-				}
-				Layer l = canvas.getCurrLayer();
-				Viewpoint vp = l.getCurrentViewpoint();
-				l.setCurrViewpoint(
-						vp.viewpointX,
-						(int) (Utils.angle_PItoPI(currAngle - startAngle) / ANGLE_STEPSIZE));
-				// canvas.getCurrLayer().rotateY(dAngle, px, py, pz);
-				break;
-			}
-			}
-			lastX = currX;
-			lastY = currY;
-			lastAngle = currAngle;
-			repaint();
-		}
-
-		private int updateState(MouseEvent e, double cx, double cy) {
-			currX = e.getX();
-			currY = e.getY();
-			double dx = currX - cx;
-			double dy = currY - cy;
-			currAngle = Math.atan2(dy, dx);
-			double r = Math.sqrt(dx * dx + dy * dy);
-			int action = POINTER_NONE;
-			if (r < sActionRadius[sActionRadius.length - 1]) {
-				if (r < sActionRadius[0]) {
-					action = POINTER_TRANSLATE;
-				} else if (r < sActionRadius[1]) {
-					action = POINTER_ROTATE_Z;
-				} else if (r < sActionRadius[2]) {
-					action = POINTER_ROTATE_Y;
-				} else if (r < sActionRadius[3]) {
-					action = POINTER_ROTATE_X;
-				}
-			}
-			return action;
-		}
-	};
+	private PointerHandler pointerHandler;
 
 	public MeshEditor() {
 		super("Mesh Editor", new ImageIcon(
@@ -205,13 +112,17 @@ public class MeshEditor extends Perspective implements Tool.ToolContext,
 
 		JPanel center = new JPanel(new BorderLayout());
 		center.setBackground(Color.lightGray);
-		canvas = new CanvasMesh(800, 600, pointerHandler);
+		canvas = new CanvasMesh(800, 600);
 		canvas.setCurrLayer(getRootLayer());
+		pointerHandler = new AffineTransformPointerHandler(canvas);
+		canvas.setPointerHandler(pointerHandler);
 		canvasContainer = new CanvasContainer(canvas);
+		rootLayer.setCanvas(canvas);
 		center.add(canvasContainer);
 
+		renderImageSettings = new RenderImageSettings();
 		settings = new MeshEditorSettings(canvas.getSettings(),
-				layersView.getSettings());
+				layersView.getSettings(), renderImageSettings);
 
 		add(center);
 		layersView.layersList.setSelectedIndex(1);
@@ -557,6 +468,10 @@ public class MeshEditor extends Perspective implements Tool.ToolContext,
 			for (Layer layer : rootLayer.getSubLayersRecursively()) {
 				layer.setCanvas(canvas);
 			}
+			JSONObject canvasJSON = doc.optJSONObject("canvas");
+			if (canvasJSON != null) {
+				canvas.fromJSON(canvasJSON);
+			}
 			canvas.setCurrLayer(rootLayer);
 		} catch (Exception e1) {
 			e1.printStackTrace();
@@ -587,9 +502,29 @@ public class MeshEditor extends Perspective implements Tool.ToolContext,
 			file = new File(fd.getDirectory() + "/" + file_str);
 		}
 		try {
+			Layer rootLayer = layersView.getRootLayer();
+			for (Layer l : rootLayer.getSubLayersRecursively()) {
+				Path path = l.getPath();
+				if (path.isFinalized()) {
+					Mesh mesh = path.getMesh();
+					if (mesh.getControlPointsCount() < 2) {
+						String msg = "At least one mesh has less than 2 control points.\n"
+								+ "You may not be able to use it for animation. Do you\n"
+								+ "still want to continue?";
+						if (JOptionPane.showConfirmDialog(this, msg, "Warning",
+								JOptionPane.YES_NO_OPTION,
+								JOptionPane.WARNING_MESSAGE) != JOptionPane.YES_OPTION) {
+							return;
+						} else {
+							break;
+						}
+					}
+				}
+			}
 			PrintWriter out = new PrintWriter(new FileOutputStream(file));
 			JSONObject doc = new JSONObject();
-			doc.put("rootLayer", layersView.getRootLayer().toJSON());
+			doc.put("rootLayer", rootLayer.toJSON());
+			doc.put("canvas", canvas.toJSON());
 			doc.write(out);
 			out.close();
 		} catch (Exception e1) {
@@ -616,7 +551,7 @@ public class MeshEditor extends Perspective implements Tool.ToolContext,
 		data.canvasSize = new Dimension(canvas.getWidth(), canvas.getHeight());
 		data.layer = rootLayer;
 		Style style = (Style) rendererSelect.getSelectedItem();
-		return RenderImageTask.render(this, style, data);
+		return RenderImageTask.render(this, style, data, renderImageSettings);
 	}
 
 	private void renderSettings() {
@@ -658,6 +593,42 @@ public class MeshEditor extends Perspective implements Tool.ToolContext,
 		return canvasContainer;
 	}
 
+	public static class RenderImageSettings extends Settings {
+		public static final String RENDER = "Render";
+		@BooleanType(name = "Write Rendered Frame", description = "Whether to write rendered frames to disk or not", category = RENDER)
+		public boolean writeRenderedFrame = true;
+
+		@DirectoryType(name = "Rendered Frame Dir", description = "Output directory to write rendered frames", default_ = "/", category = RENDER)
+		public File renderedFrameDir = new File("C:/Users/Jasleen/Desktop/");
+
+		@EnumType(name = "Rendered Frame Format", allowed = { "jpg", "png" }, category = RENDER)
+		public String renderedFrameFormat = "png";
+
+		@StringType(name = "Rendered Frame Name", category = RENDER)
+		public String renderedFrameName = "frame";
+
+		@Override
+		public RenderImageSettings clone() {
+			RenderImageSettings clone = new RenderImageSettings();
+			clone.copyFrom(this);
+			return clone;
+		}
+
+		@Override
+		public void copyFrom(Settings copy) {
+			RenderImageSettings s = (RenderImageSettings) copy;
+			writeRenderedFrame = s.writeRenderedFrame;
+			renderedFrameDir = new File(s.renderedFrameDir.getAbsolutePath());
+			renderedFrameFormat = s.renderedFrameFormat;
+			renderedFrameName = s.renderedFrameName;
+		}
+
+		@Override
+		public String[] getCategories() {
+			return new String[] { RENDER };
+		}
+	}
+
 	public static class MeshEditorSettings extends SettingsContainer {
 		public static final String GENERAL = "General";
 
@@ -692,7 +663,17 @@ public class MeshEditor extends Perspective implements Tool.ToolContext,
 	}
 
 	public static void main(String[] args) throws Exception {
+		// AlloyLookAndFeel.setProperty("alloy.licenseCode",
+		// "2011/06/29#asidjoaisdjoasidjid@mailinator.com#lj8xv#1a193l");
+		// AlloyLookAndFeel.setProperty("alloy.isToolbarEffectsEnabled",
+		// "false");
+		// try {
+		// AlloyLookAndFeel alloyLnF = new AlloyLookAndFeel();
+		// alloyLnF.setTheme(new GlassTheme(), true);
+		// UIManager.setLookAndFeel(alloyLnF);
+		// } catch (UnsupportedLookAndFeelException ex) {
 		UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+		// }
 		JFrame f = new JFrame("LiveCanvas - Mesh Editor");
 		final MeshEditor meshEditor = new MeshEditor();
 		f.setJMenuBar(meshEditor.getMenuBar());
@@ -704,9 +685,11 @@ public class MeshEditor extends Perspective implements Tool.ToolContext,
 			@Override
 			public void windowClosing(WindowEvent e) {
 				System.exit(0);
+				// meshEditor.exit();
 			}
 		});
 		f.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
 		f.setVisible(true);
+		// meshEditor.open(new File("C:/Users/Jasleen/Desktop/prez.mesh"));
 	}
 }

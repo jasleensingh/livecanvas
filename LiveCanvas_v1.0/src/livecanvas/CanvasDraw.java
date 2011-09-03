@@ -8,19 +8,25 @@ import java.awt.RenderingHints;
 import java.util.LinkedList;
 import java.util.List;
 
-import livecanvas.Tool.Pointer.PointerHandler;
-
 public class CanvasDraw extends Canvas {
 	protected List<Cel> cels = new LinkedList<Cel>();
 	protected Cel currCel;
 
-	private PointerHandler pointerHandler;
+	private PointerHandler pointerHandler = PointerHandler.NULL;
 
-	public CanvasDraw(int width, int height, PointerHandler pointerHandler) {
+	public CanvasDraw(int width, int height) {
 		super(width, height);
-		this.pointerHandler = pointerHandler;
 		currCel = new Cel(0, width, height);
 		addCel(currCel);
+	}
+
+	public PointerHandler getPointerHandler() {
+		return pointerHandler;
+	}
+
+	// must be called before this Canvas is added to its parent CanvasContainter
+	public void setPointerHandler(PointerHandler pointerHandler) {
+		this.pointerHandler = pointerHandler;
 	}
 
 	protected void addTools() {

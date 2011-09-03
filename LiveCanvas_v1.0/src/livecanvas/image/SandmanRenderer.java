@@ -9,6 +9,7 @@ import java.io.IOException;
 import javax.imageio.ImageIO;
 
 import livecanvas.Progress;
+import livecanvas.sandman.Sandman;
 
 public class SandmanRenderer extends AbstractRenderer<SandTile> {
 	private int[][] textures;
@@ -20,14 +21,12 @@ public class SandmanRenderer extends AbstractRenderer<SandTile> {
 			textureWidths = new int[2];
 			textureHeights = new int[2];
 			BufferedImage img;
-			img = ImageIO.read(SandmanRenderer.class
-					.getResource("res/dark.png"));
+			img = ImageIO.read(Sandman.class.getResource("dark.png"));
 			textureWidths[0] = img.getWidth();
 			textureHeights[0] = img.getHeight();
 			textures[0] = img.getRGB(0, 0, textureWidths[0], textureHeights[0],
 					null, 0, textureWidths[0]);
-			img = ImageIO.read(SandmanRenderer.class
-					.getResource("res/light.png"));
+			img = ImageIO.read(Sandman.class.getResource("light.png"));
 			textureWidths[1] = img.getWidth();
 			textureHeights[1] = img.getHeight();
 			textures[1] = img.getRGB(0, 0, textureWidths[1], textureHeights[1],
@@ -126,7 +125,7 @@ public class SandmanRenderer extends AbstractRenderer<SandTile> {
 		}
 		return nearest;
 	}
-
+	
 	@Override
 	public boolean supportsBlending() {
 		return true;

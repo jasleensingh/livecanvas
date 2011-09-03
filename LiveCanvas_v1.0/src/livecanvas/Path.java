@@ -150,7 +150,7 @@ public class Path {
 		int area = bbox.width * bbox.height;
 		int total = (int) (area * LayersViewSettings
 				.meshDensity2ParticlesBBoxRatio(LayersView.settings.meshDensity));
-		mesh = CanvasMesh.MeshHandler.generateMesh(total, vs, count);
+		mesh = CanvasMesh.meshHandler.generateMesh(total, vs, count);
 		vs = mesh.getPathVertices();
 		createShape();
 		finalized = true;
@@ -253,11 +253,10 @@ public class Path {
 		return mesh;
 	}
 
-	public static Path fromBackgroundRef(BackgroundRef bgref) {
+	public static Path fromBackgroundRef(BackgroundRef bgref, double density) {
 		Dimension size = bgref.getSize();
 		int area = size.width * size.height;
-		int total = (int) (area * LayersViewSettings
-				.meshDensity2ParticlesBBoxRatio(LayersView.settings.meshDensity));
+		int total = (int) (area * density);
 		int nx = (int) (Math.sqrt((double) total / area) * size.width);
 		int ny = (int) (Math.sqrt((double) total / area) * size.height);
 		// use slightly smaller area of the image to prevent out of bounds
@@ -269,7 +268,7 @@ public class Path {
 		for (int i = 0; i <= ny; i++) {
 			for (int j = 0; j <= nx; j++) {
 				vertices[i * (nx + 1) + j] = new Vertex(2 + j * gridSizeX
-						- size.width / 2, 2 + i * gridSizeY - size.height / 2,
+						- size.width / 2 + bgref.offset.x, 2 + i * gridSizeY - size.height / 2 + bgref.offset.y,
 						0, i == 0 || j == 0 || i == ny || j == nx);
 			}
 		}
@@ -324,6 +323,7 @@ public class Path {
 		mesh.faces = faces;
 		mesh.setFaceIndices();
 		path.mesh = mesh;
+		path.createShape();
 		path.finalized = true;
 		return path;
 	}

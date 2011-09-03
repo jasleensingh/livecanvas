@@ -1,24 +1,12 @@
 package livecanvas.image;
 
-import java.awt.Color;
 import java.awt.Graphics2D;
-import java.awt.Paint;
-import java.awt.Stroke;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Point2D;
-import java.util.HashMap;
-import java.util.Map;
 
 import livecanvas.Progress;
 
 public class MosaicRenderer extends AbstractRenderer<MosaicTile> {
-	private static Map<Integer, Stroke> STROKE_CACHE = new HashMap<Integer, Stroke>();
-
-	@Override
-	public Paint getBackground() {
-		return new Color(0x22221A);
-	}
-
 	@Override
 	public void render(Graphics2D g, RenderData data,
 			Particle<MosaicTile>[] particles, Progress.Indicator progress) {

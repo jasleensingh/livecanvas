@@ -35,7 +35,6 @@ public abstract class AbstractParticleGenerator<T> implements
 			Path path = l.getPath();
 			BackgroundRef bgref = l.findBackgroundRef();
 			if (path.isFinalized() && bgref != null) {
-				System.err.println("drawing layer: " + l.getName());
 				Particle<T>[] meshParticles = generateForPath(path, data,
 						bgref);
 				particles.addAll(Arrays.asList(meshParticles));

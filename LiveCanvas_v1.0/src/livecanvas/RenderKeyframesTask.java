@@ -11,6 +11,7 @@ import java.util.List;
 import javax.imageio.ImageIO;
 
 import livecanvas.Progress.Indicator;
+import livecanvas.animator.Animator.RenderAnimSettings;
 import livecanvas.animator.Interpolator;
 import livecanvas.animator.Keyframes;
 import livecanvas.animator.KeyframesContainer;
@@ -25,15 +26,18 @@ public class RenderKeyframesTask implements Progress.Task {
 	private Keyframes keyframes;
 	private Style style;
 	private RenderData data;
+	private RenderAnimSettings renderAnimSettings;
 	private BufferedImage[] renderedFrames;
 	private String desc;
 
 	private RenderKeyframesTask(KeyframesContainer container,
-			Keyframes keyframes, Style style, RenderData data) {
+			Keyframes keyframes, Style style, RenderData data,
+			RenderAnimSettings renderAnimSettings) {
 		this.container = container;
 		this.keyframes = keyframes;
 		this.style = style;
 		this.data = data;
+		this.renderAnimSettings = renderAnimSettings;
 	}
 
 	@Override
@@ -54,7 +58,8 @@ public class RenderKeyframesTask implements Progress.Task {
 			Keyframe kf = keyframes.get(i);
 			Interpolator in = kf.getInterpolator();
 			for (int j = 0; j <= in.intermediateFramesCount; j++) {
-				desc = "Rendering Frame " + (renderedFramesList.size() + 1) + "...";
+				desc = "Rendering Frame " + (renderedFramesList.size() + 1)
+						+ "...";
 				if (j == in.intermediateFramesCount) {
 					data.interpolation = 1.0f;
 					container.updateMeshFromKeyframe(kf);
@@ -92,13 +97,20 @@ public class RenderKeyframesTask implements Progress.Task {
 					state = style.renderer.state();
 				}
 				g.dispose();
-				// try {
-				// ImageIO.write(rendered, "png", new File(
-				// "C:/Users/Jasleen/Desktop/animframes/"
-				// + renderedFramesList.size() + ".png"));
-				// } catch (IOException e) {
-				// e.printStackTrace();
-				// }
+				if (renderAnimSettings != null
+						&& renderAnimSettings.writeRenderedFrames) {
+					try {
+						String name = String.format(
+								renderAnimSettings.renderedFramesName,
+								renderedFramesList.size());
+						String format = renderAnimSettings.renderedFramesFormat;
+						ImageIO.write(rendered, format, new File(
+								renderAnimSettings.renderedFramesDir + "/"
+										+ name + "." + format));
+					} catch (IOException e) {
+						e.printStackTrace();
+					}
+				}
 				renderedFramesList.add(rendered);
 
 				// Update particle positions if blending
@@ -109,7 +121,6 @@ public class RenderKeyframesTask implements Progress.Task {
 								.getBackgroundRefBackingIndex(l);
 						int backingIndex2 = kf.getBackgroundRefBackingIndex(l);
 						if (backingIndex1 != backingIndex2) {
-							System.err.println("blending " + l.getName() + "!!!!!!!!!!!");
 							Mesh mesh = l.getPath().getMesh();
 							for (Particle[] ps : particlesInPass) {
 								for (Particle p : ps) {
@@ -131,9 +142,9 @@ public class RenderKeyframesTask implements Progress.Task {
 
 	public static BufferedImage[] render(Component parent,
 			KeyframesContainer container, Keyframes keyframes, Style style,
-			RenderData data) {
+			RenderData data, RenderAnimSettings renderAnimSettings) {
 		RenderKeyframesTask task = new RenderKeyframesTask(container,
-				keyframes, style, data);
+				keyframes, style, data, renderAnimSettings);
 		Progress.Dialog.show(parent, task);
 		return task.renderedFrames;
 	}

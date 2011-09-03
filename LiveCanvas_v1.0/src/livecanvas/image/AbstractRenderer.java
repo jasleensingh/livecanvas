@@ -4,15 +4,20 @@ import java.awt.Color;
 import java.awt.Paint;
 import java.awt.geom.Point2D;
 
+import common.typeutils.ColorType;
+
 import livecanvas.BackgroundRef;
 import livecanvas.components.Layer;
 
 public abstract class AbstractRenderer<T> implements Renderer<T> {
+	@ColorType(name = "Background")
+	public Color background = Color.white;
+
 	protected int state;
 
 	@Override
 	public Paint getBackground() {
-		return Color.white;
+		return background;
 	}
 
 	protected void state(int state) {

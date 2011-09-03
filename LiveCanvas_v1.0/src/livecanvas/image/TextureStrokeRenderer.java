@@ -2,7 +2,6 @@ package livecanvas.image;
 
 import java.awt.Color;
 import java.awt.Graphics2D;
-import java.awt.Paint;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Point2D;
 import java.awt.image.BufferedImage;
@@ -30,11 +29,14 @@ public class TextureStrokeRenderer extends AbstractRenderer<TextureStroke> {
 			Point2D.Double loc = p.getLocation();
 			g.translate(loc.x, loc.y);
 			TextureStroke ts = p.packet;
+			Color c = calculateBlendedColor(data, p, loc, ts.color);
+			if (c.getAlpha() <= 0) {
+				continue;
+			}
 			g.rotate(ts.angle);
 			g.scale((double) ts.length / ts.texture.width, (double) ts.size
 					/ ts.texture.height);
-			BufferedImage texture = filter(
-					calculateBlendedColor(data, p, loc, ts.color), ts.texture);
+			BufferedImage texture = filter(c, ts.texture);
 			g.drawImage(texture, -texture.getWidth() / 2,
 					-texture.getHeight() / 2, null);
 			g.setTransform(t);

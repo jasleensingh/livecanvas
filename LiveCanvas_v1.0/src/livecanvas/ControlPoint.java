@@ -6,8 +6,6 @@ import org.json.JSONObject;
 public class ControlPoint {
 	public int vIndex;
 
-	public int index;
-	
 	public ControlPoint() {
 	}
 

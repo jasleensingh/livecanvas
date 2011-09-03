@@ -37,7 +37,6 @@ import livecanvas.Perspective;
 import livecanvas.Settings;
 import livecanvas.Settings.SettingsContainer;
 import livecanvas.Tool;
-import livecanvas.Tool.Pointer.PointerHandler;
 import livecanvas.Utils;
 import livecanvas.Utils.ButtonType;
 
@@ -82,7 +81,7 @@ public class SketchCreator extends Perspective implements ColorBar.Listener,
 
 		JPanel center = new JPanel(new BorderLayout());
 		center.setBackground(Color.lightGray);
-		canvas = new CanvasDraw(800, 600, PointerHandler.NULL);
+		canvas = new CanvasDraw(800, 600);
 		canvasContainer = new CanvasContainer(canvas);
 		center.add(canvasContainer);
 

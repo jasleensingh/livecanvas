@@ -36,6 +36,7 @@ import javax.swing.JToggleButton;
 import javax.swing.JToolBar;
 import javax.swing.UIManager;
 
+import livecanvas.AffineTransformPointerHandler;
 import livecanvas.BackgroundRef;
 import livecanvas.CanvasContainer;
 import livecanvas.CanvasMesh;
@@ -43,14 +44,15 @@ import livecanvas.ControlPoint;
 import livecanvas.Mesh;
 import livecanvas.Path;
 import livecanvas.Perspective;
+import livecanvas.PointerHandler;
 import livecanvas.RenderKeyframesTask;
 import livecanvas.Settings;
 import livecanvas.Settings.SettingsContainer;
 import livecanvas.Tool;
-import livecanvas.Tool.Pointer.PointerHandler;
 import livecanvas.Utils;
 import livecanvas.Utils.ButtonType;
 import livecanvas.Vec3;
+import livecanvas.components.InterpolationEditor;
 import livecanvas.components.Keyframe;
 import livecanvas.components.Layer;
 import livecanvas.components.LayersView;
@@ -61,8 +63,12 @@ import livecanvas.image.Style;
 import org.json.JSONObject;
 
 import common.typeutils.AutoPanel;
+import common.typeutils.BooleanType;
+import common.typeutils.DirectoryType;
+import common.typeutils.EnumType;
 import common.typeutils.IntegerType;
 import common.typeutils.PropertyFactory;
+import common.typeutils.StringType;
 
 public class Animator extends Perspective implements KeyframesContainer,
 		Tool.ToolContext, CanvasMesh.Listener, Timeline.Listener,
@@ -71,7 +77,8 @@ public class Animator extends Perspective implements KeyframesContainer,
 
 	private JToolBar toolBar;
 	private JMenuBar menuBar;
-	private AnimatorSettings settings;
+	private RenderAnimSettings renderAnimSettings;
+	private AnimatorSettings animatorSettings;
 	private PreviewPanel preview;
 	private Timeline timeline;
 	private OnionSkin onionSkin;
@@ -87,7 +94,13 @@ public class Animator extends Perspective implements KeyframesContainer,
 	private int prevX, prevY;
 	private int currX, currY;
 	private Vertex overControlPointVertex;
-	private PointerHandler pointerHandler = new PointerHandler() {
+	private PointerHandler pointerHandler;
+
+	private class MeshTransformHandler extends AffineTransformPointerHandler {
+		public MeshTransformHandler(CanvasMesh canvas) {
+			super(canvas);
+		}
+
 		public boolean onSelected() {
 			if (!canvas.getCurrLayer().getPath().isFinalized()) {
 				JOptionPane.showMessageDialog(Animator.this,
@@ -109,6 +122,7 @@ public class Animator extends Perspective implements KeyframesContainer,
 				}
 			}
 			if (overControlPointVertex == null) {
+				super.mousePressed(e);
 				return;
 			}
 			prevX = currX = e.getX();
@@ -117,18 +131,20 @@ public class Animator extends Perspective implements KeyframesContainer,
 
 		public void mouseDragged(MouseEvent e) {
 			if (overControlPointVertex == null) {
+				super.mouseDragged(e);
+				canvas.fireMeshEdit(MESH_MANIPULATE);
 				return;
 			}
 			currX = e.getX();
 			currY = e.getY();
-			rigidTransform(currX - prevX, currY - prevY);
+			transformMesh(currX - prevX, currY - prevY);
 			prevX = currX;
 			prevY = currY;
 			canvas.fireMeshEdit(MESH_MANIPULATE);
 			repaint();
 		}
 
-		private void rigidTransform(int dx, int dy) {
+		private void transformMesh(int dx, int dy) {
 			Mesh mesh = canvas.getCurrLayer().getPath().getMesh();
 			if (mesh.getControlPoints().size() <= 1) {
 				for (Vertex v : mesh.vertices) {
@@ -165,15 +181,18 @@ public class Animator extends Perspective implements KeyframesContainer,
 
 		JPanel center = new JPanel(new BorderLayout());
 		center.setBackground(Color.lightGray);
-		canvas = new CanvasMesh(800, 600, pointerHandler);
+		canvas = new CanvasMesh(800, 600);
 		canvas.setCurrLayer(getRootLayer());
 		canvas.addListener(this);
+		pointerHandler = new MeshTransformHandler(canvas);
+		canvas.setPointerHandler(pointerHandler);
 		canvasContainer = new CanvasContainer(canvas);
 		center.add(canvasContainer);
 		add(center);
 
-		settings = new AnimatorSettings(canvas.getSettings(),
-				layersView.getSettings());
+		renderAnimSettings = new RenderAnimSettings();
+		animatorSettings = new AnimatorSettings(canvas.getSettings(),
+				layersView.getSettings(), renderAnimSettings);
 
 		onionSkin = new OnionSkin(this, canvas);
 		canvas.setOnionSkin(onionSkin);
@@ -185,11 +204,6 @@ public class Animator extends Perspective implements KeyframesContainer,
 		add(timeline, BorderLayout.SOUTH);
 
 		setSelectedToolType(TOOLS_PANZOOM);
-
-		// importMesh(new File(
-		// "C:/Users/Jasleen/Desktop/livecanvas_bgrefs/large/s/el2.mesh"));
-		// layersView.layersList.setSelectedIndex(3);
-		// setSelectedToolType(TOOLS_POINTER);
 	}
 
 	@Override
@@ -214,7 +228,7 @@ public class Animator extends Perspective implements KeyframesContainer,
 			showSettingsDialog();
 			break;
 		case RENDER_SETTINGS:
-			renderSettings();
+			renderAnimSettings();
 			break;
 		case PREVIEW:
 			preview();
@@ -233,6 +247,9 @@ public class Animator extends Perspective implements KeyframesContainer,
 			break;
 		case TOOLS_PANZOOM:
 			setSelectedToolType(TOOLS_PANZOOM);
+			break;
+		case TWEEN_KEYFRAMES:
+			tweenKeyframesFrom(getSelectedKeyframe());
 			break;
 		default:
 			return false;
@@ -260,7 +277,7 @@ public class Animator extends Perspective implements KeyframesContainer,
 	}
 
 	public AnimatorSettings getSettings() {
-		return settings;
+		return animatorSettings;
 	}
 
 	@Override
@@ -292,19 +309,39 @@ public class Animator extends Perspective implements KeyframesContainer,
 			clear();
 			JSONObject doc = new JSONObject(sw.toString());
 			Layer rootLayer = Layer.fromJSON(doc.getJSONObject("rootLayer"));
+			// BackgroundRef.BGImage bgref = new BGImage();
+			// bgref.setImagePaths(new String[] {
+			// "C:/Users/Jasleen/Desktop/dog/bg_large.png" });
+			// bgref.setOffset(new Point(400, 0));
+			// Layer bglayer = rootLayer.getSubLayers().get(0);
+			// bglayer.setBackgroundRef(bgref);
+			// bglayer.setPath(Path.fromBackgroundRef(
+			// bgref,
+			// LayersViewSettings
+			// .meshDensity2ParticlesBBoxRatio(LayersViewSettings.DENSITY_MEDIUM)));
+			// Mesh mymesh = bglayer.getPath().getMesh();
+			// int count = mymesh.getControlPointsCount();
 			layersView.setRootLayer(rootLayer);
 			rootLayer.setCanvas(canvas);
 			for (Layer layer : rootLayer.getSubLayersRecursively()) {
 				layer.setCanvas(canvas);
+			}
+			JSONObject canvasJSON = doc.optJSONObject("canvas");
+			if (canvasJSON != null) {
+				canvas.fromJSON(canvasJSON);
 			}
 			canvas.setCurrLayer(rootLayer);
 			canvas.initializeTransform();
 			Keyframes keyframes = Keyframes.fromJSON(doc
 					.getJSONObject("keyframes"));
 			for (Keyframe kf : keyframes) {
+				// Vec3[] cpv = new Vec3[count];
+				// for (int i = 0; i < count; i++) {
+				// cpv[i] = new Vec3(mymesh.getControlPointVertex(i));
+				// }
+				// kf.setControlPointVertexLocations(bglayer, cpv);
 				updateMeshFromKeyframe(kf);
 			}
-			System.err.println(keyframes.size() + " keyframes");
 			timeline.setKeyframes(keyframes);
 			in.close();
 			timeline.setKeyframeSelected(keyframes.get(0));
@@ -351,18 +388,19 @@ public class Animator extends Perspective implements KeyframesContainer,
 	}
 
 	@Override
-	public Keyframe getKeyframeSelected() {
+	public Keyframe getSelectedKeyframe() {
 		return timeline.getKeyframeSelected();
 	}
 
 	public void updateMeshFromKeyframe(Keyframe kf) {
 		Layer rootLayer = canvas.getCurrLayer().getRoot();
-		updateMeshFromKeyframe(kf, rootLayer);
+		updateMeshFromKeyframe(kf, rootLayer, true);
 		canvas.updateTransform();
 		kf.meshEdited(rootLayer);
 	}
 
-	private void updateMeshFromKeyframe(Keyframe kf, Layer layer) {
+	public void updateMeshFromKeyframe(Keyframe kf, Layer layer,
+			boolean includeSubLayers) {
 		Viewpoint[][] viewpoints = layer.getViewpoints();
 		for (int vx = 0; vx < viewpoints.length; vx++) {
 			for (int vy = 0; vy < viewpoints[vx].length; vy++) {
@@ -386,8 +424,10 @@ public class Animator extends Perspective implements KeyframesContainer,
 				}
 			}
 		}
-		for (Layer subLayer : layer.getSubLayers()) {
-			updateMeshFromKeyframe(kf, subLayer);
+		if (includeSubLayers) {
+			for (Layer subLayer : layer.getSubLayers()) {
+				updateMeshFromKeyframe(kf, subLayer, includeSubLayers);
+			}
 		}
 	}
 
@@ -396,14 +436,14 @@ public class Animator extends Perspective implements KeyframesContainer,
 			float interpolation) {
 		interpolation = Math.max(0, Math.min(1, interpolation));
 		Layer rootLayer = canvas.getCurrLayer().getRoot();
-		updateMeshFromKeyframes(kf1, kf2, interpolation, rootLayer);
+		updateMeshFromKeyframes(kf1, kf2, interpolation, rootLayer, true);
 		canvas.updateTransform();
 		// kf2.meshEdited(rootLayer);
 	}
 
 	// XXX: Check viewpoint code, haven't updated that. 07/20
 	private void updateMeshFromKeyframes(Keyframe kf1, Keyframe kf2,
-			float interpolation, Layer layer) {
+			float interpolation, Layer layer, boolean includeSubLayers) {
 		Viewpoint[][] viewpoints = layer.getViewpoints();
 		for (int vx = 0; vx < viewpoints.length; vx++) {
 			for (int vy = 0; vy < viewpoints[vx].length; vy++) {
@@ -427,8 +467,11 @@ public class Animator extends Perspective implements KeyframesContainer,
 				}
 			}
 		}
-		for (Layer subLayer : layer.getSubLayers()) {
-			updateMeshFromKeyframes(kf1, kf2, interpolation, subLayer);
+		if (includeSubLayers) {
+			for (Layer subLayer : layer.getSubLayers()) {
+				updateMeshFromKeyframes(kf1, kf2, interpolation, subLayer,
+						includeSubLayers);
+			}
 		}
 	}
 
@@ -450,6 +493,7 @@ public class Animator extends Perspective implements KeyframesContainer,
 			PrintWriter out = new PrintWriter(new FileOutputStream(file));
 			JSONObject doc = new JSONObject();
 			doc.put("rootLayer", layersView.getRootLayer().toJSON());
+			doc.put("canvas", canvas.toJSON());
 			Keyframes keyframes = getKeyframes();
 			doc.put("keyframes", keyframes.toJSON());
 			doc.write(out);
@@ -500,6 +544,29 @@ public class Animator extends Perspective implements KeyframesContainer,
 			clear();
 			JSONObject doc = new JSONObject(out.toString());
 			Layer rootLayer = Layer.fromJSON(doc.getJSONObject("rootLayer"));
+			// check if all meshes have at least 2 control points
+			// needed for proper tweening
+			for (Layer l : rootLayer.getSubLayersRecursively()) {
+				Path path = l.getPath();
+				if (path.isFinalized()) {
+					Mesh mesh = path.getMesh();
+					if (mesh.getControlPointsCount() < 2) {
+						String msg = "At least one mesh has less than 2 control points.\n"
+								+ "It may not animate properly. Do you still want to continue?";
+						if (JOptionPane.showConfirmDialog(this, msg, "Warning",
+								JOptionPane.YES_NO_OPTION,
+								JOptionPane.WARNING_MESSAGE) != JOptionPane.YES_OPTION) {
+							return;
+						} else {
+							break;
+						}
+					}
+				}
+			}
+			JSONObject canvasJSON = doc.optJSONObject("canvas");
+			if (canvasJSON != null) {
+				canvas.fromJSON(canvasJSON);
+			}
 			layersView.setRootLayer(rootLayer);
 			canvas.setCurrLayer(rootLayer);
 			canvas.initializeTransform();
@@ -516,7 +583,7 @@ public class Animator extends Perspective implements KeyframesContainer,
 		}
 	}
 
-	private void renderSettings() {
+	private void renderAnimSettings() {
 		((Style) rendererSelect.getSelectedItem()).showSettings(this);
 	}
 
@@ -562,7 +629,8 @@ public class Animator extends Perspective implements KeyframesContainer,
 		data.canvasSize = new Dimension(canvas.getWidth(), canvas.getHeight());
 		data.layer = rootLayer;
 		data.keyframes = keyframes;
-		return RenderKeyframesTask.render(this, this, keyframes, style, data);
+		return RenderKeyframesTask.render(this, this, keyframes, style, data,
+				renderAnimSettings);
 	}
 
 	private void toggleSeeThrough() {
@@ -581,7 +649,7 @@ public class Animator extends Perspective implements KeyframesContainer,
 	public void layerSelectionChanged(Layer selectedLayer) {
 		canvas.setCurrLayer(selectedLayer);
 		// notify as bgref backing index may have changed
-		Keyframe sel = getKeyframeSelected();
+		Keyframe sel = getSelectedKeyframe();
 		if (sel != null) {
 			sel.meshEdited(selectedLayer);
 		}
@@ -709,16 +777,19 @@ public class Animator extends Perspective implements KeyframesContainer,
 		menu.add(menuItem = Utils.createMenuItem("Select next",
 				SELECTNEXT_KEYFRAME, KeyEvent.VK_N, "D", this));
 		menu.addSeparator();
+		menu.add(menuItem = Utils.createMenuItem("Tween Keyframes...",
+				TWEEN_KEYFRAMES, KeyEvent.VK_T, "T", this));
+		menu.addSeparator();
 		subMenu = new JMenu("Background Reference");
 		subMenu.add(menuItem = Utils.createMenuItem("Make Visible",
 				BGREF_MAKEVISIBLE, KeyEvent.VK_V, "", this));
 		subMenu.add(menuItem = Utils.createMenuItem("Make Invisible",
 				BGREF_MAKEINVISIBLE, KeyEvent.VK_I, "", this));
 		subMenu.add(menuItem = Utils.createMenuItem("Make Sub-layers Visible",
-				BGREF_MAKESUBVISIBLE, KeyEvent.VK_V, "", this));
+				BGREF_MAKESUBVISIBLE, 0, "", this));
 		subMenu.add(menuItem = Utils.createMenuItem(
-				"Make Sub-layers Invisible", BGREF_MAKESUBINVISIBLE,
-				KeyEvent.VK_I, "", this));
+				"Make Sub-layers Invisible", BGREF_MAKESUBINVISIBLE, 0, "",
+				this));
 		subMenu.addSeparator();
 		subMenu.add(menuItem = Utils.createMenuItem("Backing Index...",
 				BGREF_BINDEX, KeyEvent.VK_X, "", this));
@@ -762,6 +833,39 @@ public class Animator extends Perspective implements KeyframesContainer,
 		return null;
 	}
 
+	public void tweenKeyframesFrom(Keyframe from) {
+		int fromIndex, toIndex;
+		Keyframes keyframes = getKeyframes();
+		if (from == null
+				|| (fromIndex = keyframes.indexOf(from)) >= keyframes.size() - 1) {
+			return;
+		}
+		Interpolator in = new Interpolator();
+		new InterpolationEditor(this, in).setVisible(true);
+		if (in.intermediateFramesCount <= 0) {
+			return;
+		}
+		if ((toIndex = (fromIndex + in.intermediateFramesCount + 1)) >= keyframes
+				.size()) {
+			String msg = "Not enough frames in the timeline!";
+			JOptionPane.showMessageDialog(this, msg, "Error",
+					JOptionPane.ERROR_MESSAGE);
+			return;
+		}
+		Keyframe to = keyframes.get(toIndex);
+		for (int j = 0; j < in.intermediateFramesCount; j++) {
+			float x = (float) (j + 1) / (in.intermediateFramesCount + 1);
+			float interpolation = in.findYForX(x);
+			Layer selectedLayer = layersView.getSelectedLayer();
+			updateMeshFromKeyframes(from, to, interpolation, selectedLayer,
+					false);
+			Keyframe kf = keyframes.get(fromIndex + j + 1);
+			kf.updateLayerInfo(selectedLayer);
+		}
+		updateMeshFromKeyframe(getSelectedKeyframe());
+		repaint();
+	}
+
 	public CanvasMesh getCanvas() {
 		return canvas;
 	}
@@ -770,9 +874,47 @@ public class Animator extends Perspective implements KeyframesContainer,
 		return canvasContainer;
 	}
 
+	public static class RenderAnimSettings extends Settings {
+		public static final String RENDER = "Render";
+		@BooleanType(name = "Write Rendered Frames", description = "Whether to write rendered frames to disk or not", category = RENDER)
+		public boolean writeRenderedFrames = true;
+
+		@DirectoryType(name = "Rendered Frames Dir", description = "Output directory to write rendered frames", default_ = "/", category = RENDER)
+		public File renderedFramesDir = new File(
+				"C:/Users/Jasleen/Desktop/animframes/");
+
+		@EnumType(name = "Rendered Frames Format", allowed = { "jpg", "png" }, category = RENDER)
+		public String renderedFramesFormat = "png";
+
+		@StringType(name = "Rendered Frames Name", category = RENDER)
+		public String renderedFramesName = "%d";
+
+		@Override
+		public RenderAnimSettings clone() {
+			RenderAnimSettings clone = new RenderAnimSettings();
+			clone.copyFrom(this);
+			return clone;
+		}
+
+		@Override
+		public void copyFrom(Settings copy) {
+			RenderAnimSettings s = (RenderAnimSettings) copy;
+			writeRenderedFrames = s.writeRenderedFrames;
+			renderedFramesDir = new File(s.renderedFramesDir.getAbsolutePath());
+			renderedFramesFormat = s.renderedFramesFormat;
+			renderedFramesName = s.renderedFramesName;
+		}
+
+		@Override
+		public String[] getCategories() {
+			return new String[] { RENDER };
+		}
+	}
+
 	public static class AnimatorSettings extends SettingsContainer {
 		public static final String GENERAL = "General";
 		public static final String EDITING = "Editing";
+		public static final String ANIMATION = "Animation";
 
 		@IntegerType(name = "Undo Steps", description = "Number of Undo steps to preserve while editing", min = 0, max = 50, category = GENERAL)
 		public int undoSteps = 10;

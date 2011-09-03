@@ -41,12 +41,15 @@ public class LayerGroup extends Layer {
 
 	@Override
 	public void draw(Graphics2D g, int width, int height, boolean drawBBox,
-			boolean showMesh, boolean showBgRef) {
+			boolean showMesh, boolean showControlPoints, boolean showBgRef) {
 		if (getPath().count > 0) {
-			super.draw(g, width, height, drawBBox, showMesh, showBgRef);
+			super.draw(g, width, height, drawBBox, showMesh, showControlPoints,
+					showBgRef);
 		} else {
-			layer1.draw(g, width, height, drawBBox, showMesh, showBgRef);
-			layer2.draw(g, width, height, drawBBox, showMesh, showBgRef);
+			layer1.draw(g, width, height, drawBBox, showMesh,
+					showControlPoints, showBgRef);
+			layer2.draw(g, width, height, drawBBox, showMesh,
+					showControlPoints, showBgRef);
 		}
 	}
 }

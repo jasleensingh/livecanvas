@@ -8,6 +8,7 @@ import java.awt.FileDialog;
 import java.awt.FlowLayout;
 import java.awt.Frame;
 import java.awt.Graphics2D;
+import java.awt.Point;
 import java.awt.Shape;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -33,8 +34,14 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import common.typeutils.AutoPanel;
+import common.typeutils.EnumType;
+import common.typeutils.PropertyFactory;
+
 public abstract class BackgroundRef {
 	protected Layer layer;
+
+	protected Point offset = new Point();
 
 	public Layer getLayer() {
 		return layer;
@@ -43,10 +50,18 @@ public abstract class BackgroundRef {
 	public void setLayer(Layer layer) {
 		this.layer = layer;
 	}
+	
+	public Point getOffset() {
+		return offset;
+	}
+	
+	public void setOffset(Point offset) {
+		this.offset = offset;
+	}
 
 	public abstract String getType();
 
-	public abstract boolean load(Component parent);
+	public abstract boolean load(Component parent, Dimension canvasSize);
 
 	public abstract int getBackingCount();
 
@@ -82,6 +97,8 @@ public abstract class BackgroundRef {
 	public final JSONObject toJSON() throws JSONException {
 		JSONObject json = _toJSON();
 		json.put("type", getType());
+		json.put("offsetx", offset.x);
+		json.put("offsety", offset.y);
 		return json;
 	}
 
@@ -90,16 +107,57 @@ public abstract class BackgroundRef {
 
 	public static BackgroundRef fromJSON(JSONObject json) throws JSONException {
 		String type = json.getString("type");
+		int offsetx = json.optInt("offsetx");
+		int offsety = json.optInt("offsety");
+		BackgroundRef bgref;
 		if (BGImage.Type.equals(type)) {
-			return new BGImage()._fromJSON(json);
+			bgref = new BGImage();
 		} else if (BGColor.Type.equals(type)) {
-			return new BGColor()._fromJSON(json);
+			bgref = new BGColor();
+		} else {
+			return null;
 		}
-		return null;
+		bgref.offset.setLocation(offsetx, offsety);
+		return bgref._fromJSON(json);
 	}
 
 	private abstract static class MultiChooser extends JDialog {
+		public static class Alignment {
+			public static final String LEFT = "Left", CENTER = "Center",
+					RIGHT = "Right";
+			@EnumType(name = "Horizontal Alignment", allowed = { LEFT, CENTER,
+					RIGHT })
+			public String horizontal = CENTER;
+
+			public static final String TOP = "Top", MIDDLE = "Middle",
+					BOTTOM = "Bottom";
+			@EnumType(name = "Vertical Alignment", allowed = { TOP, MIDDLE,
+					BOTTOM })
+			public String vertical = MIDDLE;
+
+			public Point offset(Dimension outer, Dimension inner) {
+				int offsetx, offsety;
+				if (LEFT.equals(horizontal)) {
+					offsetx = -(outer.width - inner.width) / 2;
+				} else if (RIGHT.equals(horizontal)) {
+					offsetx = (outer.width - inner.width) / 2;
+				} else {
+					offsetx = 0;
+				}
+				if (TOP.equals(horizontal)) {
+					offsety = -(outer.height - inner.height) / 2;
+				} else if (BOTTOM.equals(horizontal)) {
+					offsety = (outer.height - inner.height) / 2;
+				} else {
+					offsety = 0;
+				}
+				return new Point(offsetx, offsety);
+			}
+		}
+
 		private JList contentList;
+
+		private Alignment alignment = new Alignment();
 
 		public MultiChooser(Frame owner, ListCellRenderer lcr) {
 			super(owner, "Choose", true);
@@ -129,6 +187,18 @@ public abstract class BackgroundRef {
 					if (model.size() > 0) {
 						model.remove(model.size() - 1);
 					}
+				}
+			});
+			north.add(btn);
+			btn = new JButton("Alignment...");
+			btn.addActionListener(new ActionListener() {
+				@Override
+				public void actionPerformed(ActionEvent e) {
+					JOptionPane.showMessageDialog(
+							MultiChooser.this,
+							new AutoPanel(PropertyFactory
+									.createProperties(alignment)), "Alignment",
+							JOptionPane.PLAIN_MESSAGE);
 				}
 			});
 			north.add(btn);
@@ -166,6 +236,10 @@ public abstract class BackgroundRef {
 		public Object[] get() {
 			DefaultListModel model = (DefaultListModel) contentList.getModel();
 			return model.toArray();
+		}
+
+		public Alignment alignment() {
+			return alignment;
 		}
 
 		protected abstract Object add();
@@ -212,7 +286,7 @@ public abstract class BackgroundRef {
 		}
 
 		@Override
-		public boolean load(Component parent) {
+		public boolean load(Component parent, Dimension canvasSize) {
 			MultiChooser mc = new ImageMultiChooser(
 					JOptionPane.getFrameForComponent(parent));
 			mc.setVisible(true);
@@ -221,12 +295,11 @@ public abstract class BackgroundRef {
 				return false;
 			}
 			try {
-				images = new BufferedImage[objs.length];
-				imagePaths = new String[objs.length];
+				String[] ips = new String[objs.length];
 				for (int i = 0; i < objs.length; i++) {
-					images[i] = ImageCache
-							.load(imagePaths[i] = (String) objs[i]);
+					ips[i] = (String) objs[i];
 				}
+				setImagePaths(ips);
 			} catch (IOException e) {
 				images = null;
 				imagePaths = null;
@@ -235,7 +308,21 @@ public abstract class BackgroundRef {
 						JOptionPane.ERROR_MESSAGE);
 				return false;
 			}
+			offset = mc.alignment().offset(canvasSize, getSize());
 			return true;
+		}
+
+		public String[] getImagePaths() {
+			return imagePaths;
+		}
+
+		public void setImagePaths(String[] ips) throws IOException {
+			images = new BufferedImage[ips.length];
+			imagePaths = new String[ips.length];
+			for (int i = 0; i < ips.length; i++) {
+				imagePaths[i] = ips[i];
+				images[i] = ImageCache.load(imagePaths[i]);
+			}
 		}
 
 		@Override
@@ -252,9 +339,9 @@ public abstract class BackgroundRef {
 
 		@Override
 		public void draw(Graphics2D g) {
-			g.drawImage(images[backingIndex],
-					-images[backingIndex].getWidth() / 2,
-					-images[backingIndex].getHeight() / 2, null);
+			g.drawImage(images[backingIndex], -images[backingIndex].getWidth()
+					/ 2 + offset.x, -images[backingIndex].getHeight() / 2
+					+ offset.y, null);
 		}
 
 		@Override
@@ -306,6 +393,7 @@ public abstract class BackgroundRef {
 			try {
 				images = new BufferedImage[imagePaths.length];
 				for (; i < imagePaths.length; i++) {
+					System.err.println(imagePaths[i]);
 					images[i] = ImageIO.read(new File(imagePaths[i]));
 				}
 			} catch (IOException e) {
@@ -359,7 +447,7 @@ public abstract class BackgroundRef {
 		}
 
 		@Override
-		public boolean load(Component parent) {
+		public boolean load(Component parent, Dimension canvasSize) {
 			MultiChooser mc = new ColorMultiChooser(
 					JOptionPane.getFrameForComponent(parent));
 			mc.setVisible(true);
@@ -367,11 +455,23 @@ public abstract class BackgroundRef {
 			if (objs.length <= 0) {
 				return false;
 			}
-			colors = new Color[objs.length];
+			Color[] cs = new Color[objs.length];
 			for (int i = 0; i < objs.length; i++) {
-				colors[i] = (Color) objs[i];
+				cs[i] = (Color) objs[i];
 			}
+			setColors(cs);
 			return true;
+		}
+
+		public Color[] getColors() {
+			return colors;
+		}
+
+		public void setColors(Color[] cs) {
+			colors = new Color[cs.length];
+			for (int i = 0; i < cs.length; i++) {
+				colors[i] = cs[i];
+			}
 		}
 
 		@Override

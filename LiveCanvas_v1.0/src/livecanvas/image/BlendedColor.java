@@ -6,7 +6,7 @@ import livecanvas.BackgroundRef;
 
 public class BlendedColor {
 	public Color getColor(int x, int y, int backingIndex1) {
-		return new Color(bgref.getRGB(x, y, backingIndex1));
+		return new Color(bgref.getRGB(x, y, backingIndex1), true);
 	}
 
 	public Color getColor(int x1, int y1, int backingIndex1, int x2, int y2,

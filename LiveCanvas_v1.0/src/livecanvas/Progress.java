@@ -20,12 +20,29 @@ public class Progress {
 	public static int DONE = 0, NOT_DONE = 1, CANCELED = -1;
 
 	public static interface Indicator {
-
 		public void setProgress(String text, double progress);
 
 		public boolean isCanceled();
 
 		public void error(String message);
+
+		public static final Indicator CONSOLE = new Indicator() {
+			@Override
+			public void setProgress(String text, double progress) {
+				System.out.println(String.format("%s [%d%%]", text,
+						(int) (progress * 100)));
+			}
+
+			@Override
+			public boolean isCanceled() {
+				return false;
+			}
+
+			@Override
+			public void error(String message) {
+				System.err.println(message);
+			}
+		};
 	}
 
 	public static interface Task {

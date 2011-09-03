@@ -1,13 +1,9 @@
 package livecanvas.image;
 
-import java.awt.Color;
 import java.awt.Graphics2D;
-import java.awt.Paint;
 import java.awt.geom.Point2D;
 
-import livecanvas.BackgroundRef;
 import livecanvas.Progress;
-import livecanvas.components.Layer;
 
 public class LineStrokeRenderer extends AbstractRenderer<LineStroke> {
 	@Override
@@ -37,7 +33,7 @@ public class LineStrokeRenderer extends AbstractRenderer<LineStroke> {
 		}
 		state(Progress.DONE);
 	}
-	
+
 	@Override
 	public boolean supportsBlending() {
 		return true;

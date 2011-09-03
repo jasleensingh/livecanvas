@@ -1,5 +1,9 @@
 package livecanvas;
 
+import java.awt.BasicStroke;
+import java.awt.Color;
+import java.awt.Graphics2D;
+import java.awt.Stroke;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -7,12 +11,14 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import livecanvas.FeatureBased.Line;
 import livecanvas.animator.AdjustScale;
 import livecanvas.animator.RigidTransform;
 import livecanvas.animator.Vertex;
 import livecanvas.components.Layer;
 import livecanvas.mosaic.Ray;
 import livecanvas.mosaic.Ray.Intersection;
+import livecanvas.thinplate.jama.Matrix;
 
 import org.poly2tri.Poly2Tri;
 import org.poly2tri.geometry.polygon.Polygon;
@@ -23,9 +29,14 @@ import org.poly2tri.triangulation.point.TPoint;
 import org.poly2tri.triangulation.sets.ConstrainedPointSet;
 import org.poly2tri.triangulation.sets.PointSet;
 
-import livecanvas.thinplate.jama.Matrix;
-
 public abstract class MeshHandler {
+	public final String name;
+
+	public MeshHandler(String name) {
+		super();
+		this.name = name;
+	}
+
 	public abstract Mesh generateMesh(int total, Vertex[] vs, int count);
 
 	public abstract void initializeTransform(Layer layer);
@@ -33,6 +44,20 @@ public abstract class MeshHandler {
 	public abstract void updateTransform(Layer layer);
 
 	public abstract void clearTransform();
+
+	public void onDrawMesh(Mesh mesh, Graphics2D g) {
+	}
+
+	public static MeshHandler fromName(String name) {
+		if (Rigid.NAME.equals(name)) {
+			return new Rigid();
+		} else if (ThinPlate.NAME.equals(name)) {
+			return new ThinPlate();
+		} else if (FeatureBased.NAME.equals(name)) {
+			return new FeatureBased();
+		}
+		return null;
+	}
 
 	protected Mesh generateMeshUniformRandom(int total, Vertex[] vs, int count) {
 		int nIterations = 100;
@@ -199,8 +224,14 @@ public abstract class MeshHandler {
 	}
 
 	public static class Rigid extends MeshHandler {
+		public static final String NAME = "Rigid [IMH05]";
+
 		private Map<String, RigidTransform> rigidTransformMap = new HashMap<String, RigidTransform>();
 		private Map<String, AdjustScale> adjustScaleMap = new HashMap<String, AdjustScale>();
+
+		public Rigid() {
+			super(NAME);
+		}
 
 		@Override
 		public Mesh generateMesh(int total, Vertex[] vs, int count) {
@@ -251,7 +282,13 @@ public abstract class MeshHandler {
 	}
 
 	public static class ThinPlate extends MeshHandler {
+		public static final String NAME = "Thin Plate Spline [Du76]";
+
 		private Map<String, Vertex[]> verticesMap = new HashMap<String, Vertex[]>();
+
+		public ThinPlate() {
+			super(NAME);
+		}
 
 		@Override
 		public Mesh generateMesh(int total, Vertex[] vs, int count) {
@@ -267,7 +304,6 @@ public abstract class MeshHandler {
 					for (int i = 0; i < srcPoints.length; i++) {
 						srcPoints[i] = new Vertex(mesh.vertices[i]);
 					}
-					System.err.println("putting: " + layer.getName());
 					verticesMap.put(layer.getName(), srcPoints);
 				}
 			}
@@ -319,7 +355,14 @@ public abstract class MeshHandler {
 	}
 
 	public static class FeatureBased extends MeshHandler {
-		private Map<String, Vertex[]> verticesMap = new HashMap<String, Vertex[]>();
+		public static final String NAME = "Feature Based [BN92]";
+
+		private Map<String, Line[]> tgtLinesMap = new HashMap<String, Line[]>();
+		private Map<String, Vertex[]> tgtVerticesMap = new HashMap<String, Vertex[]>();
+
+		public FeatureBased() {
+			super(NAME);
+		}
 
 		@Override
 		public Mesh generateMesh(int total, Vertex[] vs, int count) {
@@ -330,13 +373,23 @@ public abstract class MeshHandler {
 			Path path = layer.getPath();
 			if (path.isFinalized()) {
 				Mesh mesh = path.getMesh();
-				if (mesh.getControlPoints().size() > 1) {
-					Vertex[] srcPoints = new Vertex[mesh.vertices.length];
-					for (int i = 0; i < srcPoints.length; i++) {
-						srcPoints[i] = new Vertex(mesh.vertices[i]);
+				int count = mesh.getControlPointsCount();
+				int nlines = count / 2;
+				List<ControlPoint> controlPoints = mesh.getControlPoints();
+				if (count > 1) {
+					Vertex[] tgtPoints = new Vertex[mesh.vertices.length];
+					for (int i = 0; i < tgtPoints.length; i++) {
+						tgtPoints[i] = new Vertex(mesh.vertices[i]);
+						tgtPoints[i].index = mesh.vertices[i].index;
 					}
-					System.err.println("putting: " + layer.getName());
-					verticesMap.put(layer.getName(), srcPoints);
+					tgtVerticesMap.put(layer.getName(), tgtPoints);
+					Line[] tgtLines = new Line[nlines];
+					for (int i = 1; i < count; i += 2) {
+						Vertex v1 = tgtPoints[controlPoints.get(i - 1).vIndex];
+						Vertex v2 = tgtPoints[controlPoints.get(i).vIndex];
+						tgtLines[i / 2] = new Line(v1, v2);
+					}
+					tgtLinesMap.put(layer.getName(), tgtLines);
 				}
 			}
 			for (Layer subLayer : layer.getSubLayers()) {
@@ -345,35 +398,31 @@ public abstract class MeshHandler {
 		}
 
 		public void updateTransform(Layer layer) {
-			Vertex[] vertices;
-			if ((vertices = verticesMap.get(layer.getName())) != null) {
+			Line[] tgtLines;
+			if ((tgtLines = tgtLinesMap.get(layer.getName())) != null) {
+				Vertex[] tgtPoints = tgtVerticesMap.get(layer.getName());
 				Mesh mesh = layer.getPath().getMesh();
+				int count = mesh.getControlPointsCount();
+				int nlines = count / 2;
 				List<ControlPoint> controlPoints = mesh.getControlPoints();
-				Vertex[] srcPoints = new Vertex[controlPoints.size()];
-				Vertex[] tgtPoints = new Vertex[controlPoints.size()];
-				for (int i = 0; i < srcPoints.length; i++) {
-					srcPoints[i] = vertices[controlPoints.get(i).vIndex];
-					tgtPoints[i] = mesh.vertices[controlPoints.get(i).vIndex];
+				Line[] srcLines = new Line[nlines];
+				for (int i = 1; i < count; i += 2) {
+					Vertex v1 = mesh.vertices[controlPoints.get(i - 1).vIndex];
+					Vertex v2 = mesh.vertices[controlPoints.get(i).vIndex];
+					srcLines[i / 2] = new Line(v1, v2);
 				}
-				double[][] tps = livecanvas.ThinPlate.est_tps(srcPoints,
-						tgtPoints);
+				Vec3[] srcPoints = new Vec3[tgtPoints.length];
+				livecanvas.FeatureBased.transform(srcLines, tgtLines,
+						tgtPoints, srcPoints, mesh.getBounds().width,
+						mesh.getBounds().height);
 				OUTER: for (int i = 0; i < mesh.vertices.length; i++) {
-					Vertex p = vertices[i];
+					Vertex p = tgtPoints[i];
 					for (ControlPoint cp : controlPoints) {
-						if (mesh.getControlPointVertex(cp) == p) {
+						if (cp.vIndex == p.index) {
 							continue OUTER;
 						}
 					}
-					double[] x = new double[srcPoints.length + 3];
-					for (int j = 0; j < srcPoints.length; j++) {
-						x[j] = livecanvas.ThinPlate.U(livecanvas.ThinPlate
-								.ec_norm(srcPoints[j], p));
-					}
-					x[srcPoints.length] = 1;
-					x[srcPoints.length + 1] = p.x;
-					x[srcPoints.length + 2] = p.y;
-					mesh.vertices[i].x = Matrix.multiply(tps[0], x);
-					mesh.vertices[i].y = Matrix.multiply(tps[1], x);
+					mesh.vertices[i].set(srcPoints[i]);
 				}
 			}
 			for (Layer subLayer : layer.getSubLayers()) {
@@ -382,7 +431,55 @@ public abstract class MeshHandler {
 		}
 
 		public void clearTransform() {
-			verticesMap.clear();
+			tgtVerticesMap.clear();
+			tgtLinesMap.clear();
+		}
+
+		private Stroke stroke = new BasicStroke(3.0f);
+
+		@Override
+		public void onDrawMesh(Mesh mesh, Graphics2D g) {
+			g.setStroke(stroke);
+			Vertex v1, v2;
+			int count = mesh.getControlPointsCount();
+			List<ControlPoint> cps = mesh.getControlPoints();
+			for (int i = 1; i < count; i += 2) {
+				v1 = mesh.vertices[cps.get(i - 1).vIndex];
+				v2 = mesh.vertices[cps.get(i).vIndex];
+				drawArrow(g, (int) v1.x, (int) v1.y, (int) v2.x, (int) v2.y);
+			}
+		}
+
+		private final java.awt.Polygon defaultTip = new java.awt.Polygon(
+				new int[] { 0, -10, -10 }, new int[] { 0, -5, 5 }, 3);
+
+		private void transformTip(int x, int y, double angle) {
+			for (int i = 0; i < defaultTip.npoints; i++) {
+				double cos = Math.cos(angle);
+				double sin = Math.sin(angle);
+				tip.xpoints[i] = (int) (x + defaultTip.xpoints[i] * cos - defaultTip.ypoints[i]
+						* sin);
+				tip.ypoints[i] = (int) (y + defaultTip.xpoints[i] * sin + defaultTip.ypoints[i]
+						* cos);
+			}
+		}
+
+		private java.awt.Polygon tip = new java.awt.Polygon(new int[3],
+				new int[3], 3);
+
+		private void drawArrow(Graphics2D g2, int x1, int y1, int x2, int y2) {
+			double angle = Math.atan2(y2 - y1, x2 - x1);
+			transformTip(x2, y2, angle);
+			double offsetx = 2 * Math.cos(angle + Math.PI / 4);
+			double offsety = 2 * Math.sin(angle + Math.PI / 4);
+			g2.translate(offsetx, offsety);
+			g2.setColor(Color.black);
+			g2.drawLine(x1, y1, x2, y2);
+			g2.fillPolygon(tip);
+			g2.translate(-offsetx, -offsety);
+			g2.setColor(Color.black);
+			g2.drawLine(x1, y1, x2, y2);
+			g2.fillPolygon(tip);
 		}
 	}
 }

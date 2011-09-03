@@ -5,7 +5,7 @@ import livecanvas.components.Keyframe;
 public interface KeyframesContainer {
 	public Keyframes getKeyframes();
 
-	public Keyframe getKeyframeSelected();
+	public Keyframe getSelectedKeyframe();
 
 	public void updateMeshFromKeyframe(Keyframe kf);
 

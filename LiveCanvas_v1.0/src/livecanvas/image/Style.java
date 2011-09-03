@@ -57,8 +57,12 @@ public class Style<T> {
 				new DotRenderer()));
 		styles.add(new Style("Faces", new CentroidParticleGenerator(),
 				new FaceRenderer()));
+		styles.add(new Style("Mesh", new MeshParticleGenerator(),
+				new MeshRenderer()));
 		styles.add(new Style("Dithered", new DitheredParticleGenerator(),
 				new DitheredRenderer()));
+		styles.add(new Style("Halftone", new HalftoneParticleGenerator(),
+				new HalftoneRenderer()));
 		styles.add(new Style("Sandman", new SandmanParticleGenerator(),
 				new SandmanRenderer()));
 		styles.add(new Style("Line Strokes", new LineStrokeParticleGenerator(),

@@ -17,7 +17,6 @@ import javax.swing.JToolBar;
 
 import livecanvas.CanvasMesh;
 import livecanvas.Constants;
-import livecanvas.Tool.Pointer.PointerHandler;
 import livecanvas.Utils;
 import livecanvas.Utils.ButtonType;
 
@@ -30,7 +29,6 @@ public class PreviewPanel extends JPanel implements Constants, ActionListener {
 
 	public PreviewPanel(CanvasMesh source, BufferedImage[] renderedFrames) {
 		super(new BorderLayout());
-		System.err.println(renderedFrames.length + " frames in preview");
 		this.renderedFrames = renderedFrames;
 		JPanel north = new JPanel(new BorderLayout());
 		north.add(new JSeparator(), BorderLayout.SOUTH);
@@ -50,8 +48,7 @@ public class PreviewPanel extends JPanel implements Constants, ActionListener {
 				.getHeight()));
 		add(imageRender);
 
-		canvas = new CanvasMesh(source.getWidth(), source.getHeight(),
-				PointerHandler.NULL);
+		canvas = new CanvasMesh(source.getWidth(), source.getHeight());
 		canvas.setCurrLayer(source.getCurrLayer());
 		canvas.initializeTransform();
 	}

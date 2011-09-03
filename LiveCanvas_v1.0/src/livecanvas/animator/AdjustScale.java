@@ -179,7 +179,6 @@ public class AdjustScale {
 		d01.multiplySelf(ratio);
 		d12.multiplySelf(ratio);
 		d20.multiplySelf(ratio);
-		// add_fitted_triangle(face, d01, d12, d20);
 		Vec2[] result = { d01, d12, d20 };
 		return result;
 	}

@@ -11,32 +11,58 @@ import java.util.List;
 
 import javax.swing.JOptionPane;
 
-import livecanvas.Tool.Pointer.PointerHandler;
 import livecanvas.animator.OnionSkin;
 import livecanvas.components.Layer;
+
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import common.typeutils.EnumType;
 
 public class CanvasMesh extends Canvas {
 	public static interface Listener {
 		public void meshEdited(int mode, Layer layer);
 	}
 
-	public static MeshHandler MeshHandler = new MeshHandler.Rigid();
+	public static MeshHandler meshHandler = new MeshHandler.Rigid();
 
 	private Layer currLayer;
 	private List<Listener> listeners;
 	private boolean showMesh;
 	private boolean seeThrough;
 	private OnionSkin onionSkin;
-	private PointerHandler pointerHandler;
+	private PointerHandler pointerHandler = PointerHandler.NULL;
 
-	public CanvasMesh(int width, int height, PointerHandler pointerHandler) {
+	public CanvasMesh(int width, int height) {
 		super(width, height);
 		this.listeners = new LinkedList<Listener>();
-		this.pointerHandler = pointerHandler;
 		showMesh = true;
 		seeThrough = true;
 	}
 
+	@Override
+	protected CanvasSettings createCanvasSettings() {
+		return new CanvasMeshSettings();
+	}
+
+	@Override
+	public void settingsChanged(Settings settings) {
+		super.settingsChanged(settings);
+		meshHandler = MeshHandler
+				.fromName(((CanvasMeshSettings) settings).meshHandlerName);
+		System.err.println(meshHandler.name);
+	}
+
+	public PointerHandler getPointerHandler() {
+		return pointerHandler;
+	}
+
+	// must be called before this Canvas is added to its parent CanvasContainter
+	public void setPointerHandler(PointerHandler pointerHandler) {
+		this.pointerHandler = pointerHandler;
+	}
+
+	@Override
 	protected void addTools() {
 		toolsMap.put(TOOLS_BRUSH, new Tool.Brush(this) {
 			@Override
@@ -102,7 +128,8 @@ public class CanvasMesh extends Canvas {
 			drawAll(g, layer.getRoot(), layer);
 		} else {
 			layer.draw(g, width, height,
-					getSelectedToolType() == TOOLS_POINTER, showMesh, true);
+					getSelectedToolType() == TOOLS_POINTER, showMesh, true,
+					true);
 		}
 		g.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
 				RenderingHints.VALUE_ANTIALIAS_OFF);
@@ -114,11 +141,12 @@ public class CanvasMesh extends Canvas {
 	private void drawAll(Graphics2D g, Layer layer, Layer curr) {
 		if (layer == curr) {
 			layer.draw(g, getWidth(), getHeight(),
-					getSelectedToolType() == TOOLS_POINTER, showMesh, true);
+					getSelectedToolType() == TOOLS_POINTER, showMesh, true,
+					true);
 		} else {
 			Composite c = g.getComposite();
 			g.setComposite(sLighten);
-			layer.draw(g, getWidth(), getHeight(), false, showMesh, false);
+			layer.draw(g, getWidth(), getHeight(), false, showMesh, true, false);
 			g.setComposite(c);
 		}
 		for (Layer subLayer : layer.getSubLayers()) {
@@ -144,11 +172,11 @@ public class CanvasMesh extends Canvas {
 	}
 
 	public void initializeTransform() {
-		MeshHandler.initializeTransform(currLayer.getRoot());
+		meshHandler.initializeTransform(currLayer.getRoot());
 	}
 
 	public void updateTransform() {
-		MeshHandler.updateTransform(currLayer.getRoot());
+		meshHandler.updateTransform(currLayer.getRoot());
 	}
 
 	public void addListener(Listener l) {
@@ -170,7 +198,7 @@ public class CanvasMesh extends Canvas {
 	}
 
 	public void clear() {
-		MeshHandler.clearTransform();
+		meshHandler.clearTransform();
 	}
 
 	public Layer getCurrLayer() {
@@ -205,5 +233,48 @@ public class CanvasMesh extends Canvas {
 
 	public void setOnionSkin(OnionSkin onionSkin) {
 		this.onionSkin = onionSkin;
+	}
+
+	public JSONObject toJSON() throws JSONException {
+		JSONObject json = new JSONObject();
+		json.put("width", getWidth());
+		json.put("height", getHeight());
+		json.put("meshHandler", ((CanvasMeshSettings) settings).meshHandlerName);
+		return json;
+	}
+
+	public void fromJSON(JSONObject json) throws JSONException {
+		int width = json.getInt("width");
+		int height = json.getInt("height");
+		setSize(width, height);
+		String meshHandlerName = json.getString("meshHandler");
+		((CanvasMeshSettings) settings).meshHandlerName = meshHandlerName;
+		CanvasMesh.meshHandler = MeshHandler.fromName(meshHandlerName);
+	}
+
+	public static class CanvasMeshSettings extends CanvasSettings {
+		@EnumType(name = "Mesh Handler", category = CANVAS, allowed = {
+				MeshHandler.Rigid.NAME, MeshHandler.ThinPlate.NAME,
+				MeshHandler.FeatureBased.NAME })
+		public String meshHandlerName = meshHandler.name;
+
+		@Override
+		public CanvasMeshSettings clone() {
+			CanvasMeshSettings clone = new CanvasMeshSettings();
+			clone.copyFrom(this);
+			return clone;
+		}
+
+		@Override
+		public void copyFrom(Settings copy) {
+			super.copyFrom(copy);
+			CanvasMeshSettings s = (CanvasMeshSettings) copy;
+			meshHandlerName = s.meshHandlerName;
+		}
+
+		@Override
+		public String[] getCategories() {
+			return new String[] { CANVAS };
+		}
 	}
 }

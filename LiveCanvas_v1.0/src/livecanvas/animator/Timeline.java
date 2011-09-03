@@ -1,11 +1,15 @@
 package livecanvas.animator;
 
 import java.awt.BorderLayout;
-import java.awt.FileDialog;
+import java.awt.Graphics2D;
 import java.awt.event.ActionEvent;
+import java.awt.image.BufferedImage;
+import java.io.File;
+import java.io.IOException;
 import java.util.LinkedList;
 import java.util.List;
 
+import javax.imageio.ImageIO;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
@@ -16,6 +20,8 @@ import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JToggleButton;
 
+import livecanvas.Mesh;
+import livecanvas.Progress;
 import livecanvas.Utils;
 import livecanvas.Utils.ButtonType;
 import livecanvas.View;
@@ -23,6 +29,7 @@ import livecanvas.components.InterpolationEditor;
 import livecanvas.components.Keyframe;
 import livecanvas.components.KeyframeView;
 import livecanvas.components.Layer;
+import livecanvas.image.Particle;
 
 public class Timeline extends View implements KeyframeView.Listener {
 	private static Class clazz = Timeline.class;
@@ -108,6 +115,8 @@ public class Timeline extends View implements KeyframeView.Listener {
 			moveNextKeyframe(getKeyframeSelected());
 			break;
 		case ONIONSKIN_PREV:
+			break;
+		case ONIONSKIN_NEXT:
 			break;
 		default:
 			return false;

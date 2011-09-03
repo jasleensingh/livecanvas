@@ -12,7 +12,7 @@ import common.typeutils.BooleanType;
 import common.typeutils.ColorType;
 import common.typeutils.IntegerType;
 
-public class Canvas implements Constants {
+public class Canvas implements Constants, Settings.Listener {
 	protected CanvasSettings settings;
 	protected final Map<Integer, Tool> toolsMap;
 	protected int selectedToolType = -1;
@@ -20,15 +20,20 @@ public class Canvas implements Constants {
 	protected CanvasContainer canvasContainer;
 
 	public Canvas(int width, int height) {
-		settings = new CanvasSettings() {
-			public void copyFrom(Settings copy) {
-				super.copyFrom(copy);
-				canvasContainer.layoutCanvas();
-			}
-		};
+		settings = createCanvasSettings();
 		settings.width = width;
 		settings.height = height;
+		settings.setListener(this);
 		toolsMap = new HashMap<Integer, Tool>();
+	}
+
+	protected CanvasSettings createCanvasSettings() {
+		return new CanvasSettings();
+	}
+
+	@Override
+	public void settingsChanged(Settings settings) {
+		canvasContainer.layoutCanvas();
 	}
 
 	protected void init() {
@@ -151,10 +156,7 @@ public class Canvas implements Constants {
 		@Override
 		public CanvasSettings clone() {
 			CanvasSettings clone = new CanvasSettings();
-			clone.width = width;
-			clone.height = height;
-			clone.canvasOpaque = canvasOpaque;
-			clone.canvasBackgroundColor = canvasBackgroundColor;
+			clone.copyFrom(this);
 			return clone;
 		}
 

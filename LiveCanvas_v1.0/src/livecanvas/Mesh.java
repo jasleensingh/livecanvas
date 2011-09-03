@@ -14,7 +14,6 @@ import java.util.Map;
 
 import livecanvas.animator.Vertex;
 import livecanvas.components.LayersView;
-import livecanvas.components.LayersView.LayersViewSettings;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -65,7 +64,6 @@ public class Mesh {
 			return;
 		}
 		controlPoints.add(cp);
-		cp.index = controlPoints.size();
 	}
 
 	public void removeControlPoint(ControlPoint cp) {
@@ -169,11 +167,9 @@ public class Mesh {
 			Vertex v = vertices[cp.vIndex];
 			x1 = (int) v.x;
 			y1 = (int) v.y;
-			g.translate(x1, y1);
-			g.fillOval(-6, -6, 12, 12);
-//			CanvasMesh.MeshHandler.draw(g);
-			g.translate(-x1, -y1);
+			g.fillOval(x1 - 6, y1 - 6, 12, 12);
 		}
+		CanvasMesh.meshHandler.onDrawMesh(this, g);
 	}
 
 	public JSONObject toJSON() throws JSONException {

@@ -4,7 +4,6 @@ import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
-import java.awt.FileDialog;
 import java.awt.GridLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.KeyEvent;
@@ -43,6 +42,7 @@ import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 
 import livecanvas.BackgroundRef;
+import livecanvas.Canvas;
 import livecanvas.Path;
 import livecanvas.Settings;
 import livecanvas.Utils;
@@ -268,8 +268,9 @@ public class LayersView extends View {
 				BGREF_MAKEINVISIBLE, KeyEvent.VK_I, "", this));
 		subMenu.add(menuItem = Utils.createMenuItem("Make Sub-layers Visible",
 				BGREF_MAKESUBVISIBLE, KeyEvent.VK_V, "", this));
-		subMenu.add(menuItem = Utils.createMenuItem("Make Sub-layers Invisible",
-				BGREF_MAKESUBINVISIBLE, KeyEvent.VK_I, "", this));
+		subMenu.add(menuItem = Utils.createMenuItem(
+				"Make Sub-layers Invisible", BGREF_MAKESUBINVISIBLE,
+				KeyEvent.VK_I, "", this));
 		subMenu.addSeparator();
 		subMenu.add(menuItem = Utils.createMenuItem("Backing Index...",
 				BGREF_BINDEX, KeyEvent.VK_X, "", this));
@@ -625,7 +626,9 @@ public class LayersView extends View {
 		} else {
 			return;
 		}
-		if (!bgref.load(this)) {
+		Canvas canvas = sel.getCanvas();
+		if (!bgref.load(this,
+				new Dimension(canvas.getWidth(), canvas.getHeight()))) {
 			return;
 		}
 		sel.setBackgroundRef(bgref);
@@ -701,7 +704,9 @@ public class LayersView extends View {
 					JOptionPane.ERROR_MESSAGE);
 			return;
 		}
-		sel.setPath(Path.fromBackgroundRef(sel.getBackgroundRef()));
+		sel.setPath(Path.fromBackgroundRef(sel.getBackgroundRef(),
+				LayersViewSettings
+						.meshDensity2ParticlesBBoxRatio(settings.meshDensity)));
 	}
 
 	public boolean isAllowModifyLayers() {
@@ -763,7 +768,7 @@ public class LayersView extends View {
 	public static class LayersViewSettings extends Settings {
 		public static final String LAYERS = "Layers";
 
-		private static final String DENSITY_VERYLOW = "Very Low",
+		public static final String DENSITY_VERYLOW = "Very Low",
 				DENSITY_LOW = "Low", DENSITY_MEDIUM = "Medium",
 				DENSITY_HIGH = "High", DENSITY_VERYHIGH = "Very High";
 		@EnumType(name = "Mesh Density", allowed = { DENSITY_VERYLOW,

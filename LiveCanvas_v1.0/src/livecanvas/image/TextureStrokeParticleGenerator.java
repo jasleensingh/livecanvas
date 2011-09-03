@@ -1,6 +1,5 @@
 package livecanvas.image;
 
-import java.awt.Color;
 import java.awt.Point;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
@@ -40,7 +39,7 @@ public class TextureStrokeParticleGenerator extends
 	@FloatType(name = "Color Jitter", min = 0, max = 1, step = 0.1f)
 	public float colorJitter = 0.1f;
 
-	@FloatType(name = "Stroke Size", min = 1, max = 10, step = 0.5f)
+	@FloatType(name = "Stroke Size", min = 1, step = 0.5f)
 	public float strokeSize = 4.5f;
 
 	@Override

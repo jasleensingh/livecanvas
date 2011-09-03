@@ -1,6 +1,7 @@
 package livecanvas;
 
 import java.awt.BorderLayout;
+import java.awt.Container;
 import java.awt.Dimension;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -11,7 +12,10 @@ import java.util.List;
 
 import javax.swing.BorderFactory;
 import javax.swing.ButtonGroup;
+import javax.swing.ImageIcon;
+import javax.swing.JDialog;
 import javax.swing.JFrame;
+import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JToggleButton;
 import javax.swing.JToolBar;
@@ -43,7 +47,7 @@ public class LiveCanvas extends JFrame {
 		perspectives.add(new MeshEditor());
 		perspectives.add(new Animator());
 		tabsPanel = new JPanel(new BorderLayout());
-		tabsPanel.setPreferredSize(new Dimension(1200, 720));
+		tabsPanel.setPreferredSize(new Dimension(1024, 700));
 		JPanel north = new JPanel(new BorderLayout());
 		toolBarContainer = new JPanel(new BorderLayout());
 		north.add(toolBarContainer);
@@ -88,8 +92,33 @@ public class LiveCanvas extends JFrame {
 		tabsPanel.repaint();
 	}
 
+	private static void launch() {
+		final JDialog splash = new JDialog((JFrame) null, true);
+		splash.setUndecorated(true);
+		Container c = splash.getContentPane();
+		JLabel lbl = new JLabel(new ImageIcon(
+				LiveCanvas.class.getResource(String.format("res/splash%d.png",
+						(int) (1 + Math.random() * 3)))));
+		c.add(lbl);
+		splash.pack();
+		splash.setLocationRelativeTo(null);
+		new Thread() {
+			public void run() {
+				try {
+					Thread.sleep(2000);
+				} catch (InterruptedException e) {
+				}
+				LiveCanvas lc = new LiveCanvas();
+				splash.setVisible(false);
+				splash.dispose();
+				lc.setVisible(true);
+			}
+		}.start();
+		splash.setVisible(true);
+	}
+
 	public static void main(String[] args) throws Exception {
 		UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-		new LiveCanvas().setVisible(true);
+		launch();
 	}
 }

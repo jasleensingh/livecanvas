@@ -19,7 +19,7 @@ import common.typeutils.IntegerType;
 public class LineStrokeParticleGenerator extends
 		AbstractParticleGenerator<LineStroke> {
 	@IntegerType(name = "Density", min = 1, max = 100)
-	public int density = 10;
+	public int density = 40;
 
 	@DoubleType(name = "Angle", min = 0, max = 2 * Math.PI)
 	public double angle = Math.PI / 4;
@@ -36,8 +36,8 @@ public class LineStrokeParticleGenerator extends
 	@FloatType(name = "Color Jitter", min = 0, max = 1)
 	public float colorJitter = 0.1f;
 
-	@FloatType(name = "Stroke Size", min = 1, max = 10)
-	public float strokeSize = 1.5f;
+	@FloatType(name = "Stroke Size", min = 0.1f, max = 100.0f, step = 0.1f)
+	public float strokeSize = 1.0f;
 
 	@Override
 	public void preprocess(RenderData data) {

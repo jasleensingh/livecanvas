@@ -1,14 +1,7 @@
 package livecanvas.animator;
 
 import java.awt.geom.Point2D;
-import java.util.HashMap;
-import java.util.Map;
 
-import livecanvas.Vec2;
-import livecanvas.Vec3;
-import livecanvas.components.Keyframe;
-
-import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 

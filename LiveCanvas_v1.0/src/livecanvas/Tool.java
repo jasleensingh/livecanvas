@@ -9,8 +9,6 @@ import java.awt.Graphics2D;
 import java.awt.Point;
 import java.awt.Stroke;
 import java.awt.event.MouseEvent;
-import java.awt.event.MouseListener;
-import java.awt.event.MouseMotionListener;
 import java.awt.geom.GeneralPath;
 import java.awt.geom.PathIterator;
 import java.awt.image.BufferedImage;
@@ -577,39 +575,6 @@ public abstract class Tool {
 	}
 
 	public static class Pointer extends Tool {
-		public static class PointerHandler implements MouseListener,
-				MouseMotionListener {
-			public static PointerHandler NULL = new PointerHandler();
-
-			public boolean onSelected() {
-				return true;
-			}
-
-			public void onDeselected() {
-			}
-
-			public void mouseClicked(MouseEvent e) {
-			}
-
-			public void mousePressed(MouseEvent e) {
-			}
-
-			public void mouseReleased(MouseEvent e) {
-			}
-
-			public void mouseEntered(MouseEvent e) {
-			}
-
-			public void mouseExited(MouseEvent e) {
-			}
-
-			public void mouseMoved(MouseEvent e) {
-			}
-
-			public void mouseDragged(MouseEvent e) {
-			}
-		}
-
 		private PointerHandler pointerHandler;
 
 		public Pointer(Canvas canvas, PointerHandler pointerHandler) {

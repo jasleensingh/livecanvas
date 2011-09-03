@@ -44,6 +44,12 @@ public class Vec3 {
 		z += dz;
 	}
 
+	public Vec3 add(Vec3 vec) {
+		Vec3 result = new Vec3();
+		add(vec, result);
+		return result;
+	}
+
 	public void add(Vec3 vec, Vec3 result) {
 		result.x = this.x + vec.x;
 		result.y = this.y + vec.y;
@@ -52,6 +58,12 @@ public class Vec3 {
 
 	public void addSelf(Vec3 vec) {
 		add(vec, this);
+	}
+
+	public Vec3 subtract(Vec3 vec) {
+		Vec3 result = new Vec3();
+		subtract(vec, result);
+		return result;
 	}
 
 	public void subtract(Vec3 vec, Vec3 result) {
@@ -64,6 +76,12 @@ public class Vec3 {
 		subtract(vec, this);
 	}
 
+	public Vec3 multiply(double s) {
+		Vec3 result = new Vec3();
+		multiply(s, result);
+		return result;
+	}
+
 	public void multiply(double s, Vec3 result) {
 		result.x = s * this.x;
 		result.y = s * this.y;
@@ -74,6 +92,12 @@ public class Vec3 {
 		multiply(s, this);
 	}
 
+	public Vec3 getNormalized() {
+		Vec3 result = new Vec3(this);
+		result.normalizeSelf();
+		return result;
+	}
+
 	public void normalizeSelf() {
 		double length = length();
 		x /= length;
@@ -81,8 +105,16 @@ public class Vec3 {
 		z /= length;
 	}
 
+	public double dot(Vec3 vec) {
+		return x * vec.x + y * vec.y + z * vec.z;
+	}
+
 	public double length() {
 		return Math.sqrt(x * x + y * y + z * z);
+	}
+
+	public final double length_sqr() {
+		return x * x + y * y + z * z;
 	}
 
 	@Override

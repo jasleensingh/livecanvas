@@ -128,6 +128,14 @@ public class Keyframe {
 		return layerInfo == null ? null : layerInfo.controlPointVertexLocations;
 	}
 
+	public void setControlPointVertexLocations(Layer layer, Vec3[] cpv) {
+		int vx = layer.getCurrentViewpoint().viewpointX
+				+ Layer.ANGLE_DIVISIONS2;
+		int vy = layer.getCurrentViewpoint().viewpointY
+				+ Layer.ANGLE_DIVISIONS2;
+		setControlPointVertexLocations(layer, vx, vy, cpv);
+	}
+
 	public void setControlPointVertexLocations(Layer layer, int vx, int vy,
 			Vec3[] cpv) {
 		String key = generateKey(layer.getName(), vx, vy);
@@ -165,11 +173,11 @@ public class Keyframe {
 	}
 
 	public void meshEdited(Layer layer) {
-		saveLayerInfo(layer.getRoot());
+		updateLayerInfo(layer.getRoot());
 		drawThumbnail(layer.getRoot());
 	}
 
-	private void saveLayerInfo(Layer layer) {
+	public void updateLayerInfo(Layer layer) {
 		Viewpoint[][] viewpoints = layer.getViewpoints();
 		for (int vx = 0; vx < viewpoints.length; vx++) {
 			for (int vy = 0; vy < viewpoints[vx].length; vy++) {
@@ -200,7 +208,7 @@ public class Keyframe {
 			}
 		}
 		for (Layer subLayer : layer.getSubLayers()) {
-			saveLayerInfo(subLayer);
+			updateLayerInfo(subLayer);
 		}
 	}
 
@@ -213,7 +221,7 @@ public class Keyframe {
 	}
 
 	private void drawAll(Graphics2D g, Layer layer) {
-		layer.draw(g, 0, 0, false, false, false);
+		layer.draw(g, 0, 0, false, false, false, false);
 		for (Layer subLayer : layer.getSubLayers()) {
 			drawAll(g, subLayer);
 		}

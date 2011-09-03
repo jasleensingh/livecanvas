@@ -16,17 +16,17 @@ public interface Constants {
 			REMOVE_KEYFRAME = 51, SELECTPREV_KEYFRAME = 52,
 			SELECTNEXT_KEYFRAME = 53, MOVEPREV_KEYFRAME = 54,
 			MOVENEXT_KEYFRAME = 55, ONIONSKIN_PREV = 56, ONIONSKIN_NEXT = 57,
-			PREVIEW_START = 70, PREVIEW_STOP = 71, PREVIEW_PAUSE = 72,
-			PREVIEW_PREV = 73, PREVIEW_NEXT = 74;
+			TWEEN_KEYFRAMES = 58, PREVIEW_START = 70, PREVIEW_STOP = 71,
+			PREVIEW_PAUSE = 72, PREVIEW_PREV = 73, PREVIEW_NEXT = 74;
 	public static final int TOOLS_PENCIL = 100, TOOLS_BRUSH = 101,
 			TOOLS_PEN = 102, TOOLS_ERASE = 104, TOOLS_FILL = 105,
 			TOOLS_SELECT = 106, TOOLS_POINTER = 107, TOOLS_PANZOOM = 108,
 			TOOLS_MAGICWAND = 109, TOOLS_SETCONTROLPOINTS = 110;
 	public static final int MESH_DRAW = 200, MESH_SET_CONTROLS = 201,
 			MESH_MANIPULATE = 202;
-	public static final double[] sActionRadius = { 10, 20, 30, 40 };
+	public static final double[] sActionRadius = { 10, 20, 30 };
 	public static final int ANGLE_DIVISIONS = 16;
 	public static final int ANGLE_DIVISIONS2 = ANGLE_DIVISIONS / 2;
 	public static final double ANGLE_STEPSIZE = 2 * Math.PI / ANGLE_DIVISIONS;
-	public static final double MOVE_STEPSIZE = 20;
+	public static final double MOVE_STEPSIZE = 2;
 }

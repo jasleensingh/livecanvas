@@ -1,6 +1,5 @@
 package livecanvas;
 
-import java.awt.Color;
 import java.awt.Component;
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
@@ -13,15 +12,19 @@ import livecanvas.Progress.Indicator;
 import livecanvas.image.Particle;
 import livecanvas.image.RenderData;
 import livecanvas.image.Style;
+import livecanvas.mesheditor.MeshEditor.RenderImageSettings;
 
 public class RenderImageTask implements Progress.Task {
 	private Style style;
 	private RenderData data;
+	private RenderImageSettings renderImageSettings;
 	private BufferedImage rendered;
 
-	private RenderImageTask(Style style, RenderData data) {
+	private RenderImageTask(Style style, RenderData data,
+			RenderImageSettings renderImageSettings) {
 		this.style = style;
 		this.data = data;
+		this.renderImageSettings = renderImageSettings;
 	}
 
 	@Override
@@ -49,11 +52,17 @@ public class RenderImageTask implements Progress.Task {
 			state = style.renderer.state();
 		}
 		g.dispose();
-		try {
-			ImageIO.write(rendered, "png", new File(
-					"C:/Users/Jasleen/Desktop/canvas.png"));
-		} catch (IOException e) {
-			e.printStackTrace();
+		if (renderImageSettings != null
+				&& renderImageSettings.writeRenderedFrame) {
+			try {
+				String name = renderImageSettings.renderedFrameName;
+				String format = renderImageSettings.renderedFrameFormat;
+				ImageIO.write(rendered, format, new File(
+						renderImageSettings.renderedFrameDir + "/" + name + "."
+								+ format));
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
 		}
 		if (!progress.isCanceled()) {
 			this.rendered = rendered;
@@ -61,8 +70,9 @@ public class RenderImageTask implements Progress.Task {
 	}
 
 	public static BufferedImage render(Component parent, Style style,
-			RenderData data) {
-		RenderImageTask task = new RenderImageTask(style, data);
+			RenderData data, RenderImageSettings renderImageSettings) {
+		RenderImageTask task = new RenderImageTask(style, data,
+				renderImageSettings);
 		Progress.Dialog.show(parent, task);
 		return task.rendered;
 	}

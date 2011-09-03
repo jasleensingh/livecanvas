@@ -25,6 +25,26 @@ import common.typeutils.PropertyContainer;
 import common.typeutils.PropertyFactory;
 
 public abstract class Settings {
+	public static interface Listener {
+		public void settingsChanged(Settings settings);
+	}
+
+	private Listener listener;
+
+	public Listener getListener() {
+		return listener;
+	}
+
+	public void setListener(Listener listener) {
+		this.listener = listener;
+	}
+
+	protected void notifyListener() {
+		if (listener == null) {
+			return;
+		}
+		listener.settingsChanged(this);
+	}
 
 	public abstract Settings clone();
 
@@ -63,6 +83,7 @@ public abstract class Settings {
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				settings.copyFrom(tempCopy);
+				settings.notifyListener();
 				d.setVisible(false);
 			}
 		});
@@ -89,6 +110,13 @@ public abstract class Settings {
 
 		public SettingsContainer(Settings... settings) {
 			contained.addAll(Arrays.asList(settings));
+		}
+
+		@Override
+		protected void notifyListener() {
+			for (Settings s : contained) {
+				s.notifyListener();
+			}
 		}
 
 		@Override

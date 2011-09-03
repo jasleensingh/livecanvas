@@ -35,7 +35,7 @@ public class OnionSkin implements Timeline.Listener {
 
 	public void setShowNext(boolean showNext) {
 		this.showNext = showNext;
-		drawOnionSkin(container.getKeyframeSelected());
+		drawOnionSkin(container.getSelectedKeyframe());
 	}
 
 	@Override

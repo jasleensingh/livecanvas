@@ -245,6 +245,15 @@ public class Layer implements Constants {
 		updateCenter();
 	}
 
+	public void resize(double dx, double dy, double dz) {
+		// XXX: Change this to use interpolation between different viewpoints
+		Path path = getPath();
+		Rectangle bounds = path.getBounds();
+		scale(1 + dx / bounds.width, 1 + dy / bounds.height, 0,
+				bounds.getCenterX(), bounds.getCenterY(), 0);
+		updateCenter();
+	}
+
 	public void rotateZ(double radians, double px, double py, double pz) {
 		if (!isDefaultViewpoint()) {
 			throw new RuntimeException(
@@ -321,6 +330,7 @@ public class Layer implements Constants {
 		}
 		subLayers.add(layer);
 		layer.setParent(this);
+		layer.setCanvas(getCanvas());
 	}
 
 	public void addSubLayer(int index, Layer layer) {
@@ -374,6 +384,9 @@ public class Layer implements Constants {
 
 	public void setCanvas(Canvas canvas) {
 		this.canvas = canvas;
+		for (Layer l : getSubLayers()) {
+			l.setCanvas(canvas);
+		}
 	}
 
 	public Path getPath() {
@@ -429,7 +442,7 @@ public class Layer implements Constants {
 	private Stroke transformWidgetStroke = new BasicStroke(1.0f);
 
 	public void draw(Graphics2D g, int width, int height, boolean drawBBox,
-			boolean showMesh, boolean showBgRef) {
+			boolean showMesh, boolean showControlPoints, boolean showBgRef) {
 		if (visibility != Visibility.VISIBLE) {
 			return;
 		}
@@ -455,16 +468,15 @@ public class Layer implements Constants {
 				g.setStroke(transformWidgetStroke);
 				int cx = (int) bounds.getCenterX();
 				int cy = (int) bounds.getCenterY();
-				// for (int i = 0; i < sActionRadius.length; i++) {
-				// int r = (int) sActionRadius[i];
-				// g.fillOval(cx - r, cy - r, r * 2, r * 2);
-				// }
+				for (int i = 0; i < sActionRadius.length; i++) {
+					int r = (int) sActionRadius[i];
+					g.drawOval(cx - r, cy - r, r * 2, r * 2);
+				}
 			}
 		}
 	}
 
 	public JSONObject toJSON() throws JSONException {
-		System.err.println("toJSON: " + getName());
 		JSONObject json = new JSONObject();
 		json.put("name", name);
 		if (backgroundRef != null) {
